@@ -16,42 +16,56 @@ type  Topic struct {
 	Content string
 }
 
-func topicWorker(topicLink string) {
-    targetUrl := domainUrl + topicLink
-    doc, err := goquery.NewDocument(targetUrl)
-    if err != nil {
-        log.Fatal(err)
-    }
+func topicWorker(topicChannel<-chan string) {
+  for {
+    select {
+      case topicLink := <- topicChannel:
+        log.Printf("Recieved %s for processing", topicLink)
+        targetUrl := domainUrl + topicLink
+        doc, err := goquery.NewDocument(targetUrl)
+        if err != nil {
+          log.Fatal(err)
+        }
 
-    var topicHeader string
-    doc.Find("#postlist h2.title").Each(func(i int, s *goquery.Selection){
-        topicHeader = s.Text()
-        fmt.Println(topicHeader)
-    })
+        var topicHeader string
+        doc.Find("#postlist h2.title").Each(func(i int, s *goquery.Selection){
+          topicHeader = s.Text()
+          fmt.Println(topicHeader)
+        })
 
-    var topicBody string
-    doc.Find("#postlist div.postdetails div.content").Each(func(i int, s *goquery.Selection){
-        topicBody = s.Text()
-        fmt.Println(topicBody)
-    })
+        var topicBody string
+        doc.Find("#postlist div.postdetails div.content").Each(func(i int, s *goquery.Selection){
+          topicBody = s.Text()
+          fmt.Println(topicBody)
+        })
 
-    session, mongoErr := mgo.Dial("localhost")
-    if mongoErr != nil {
-      log.Fatal(err)
-    }
-    defer session.Close()
+        session, mongoErr := mgo.Dial("localhost")
+        if mongoErr != nil {
+          log.Fatal(err)
+        }
+        defer session.Close()
 
-    c := session.DB("crawler").C("topics")
-    mongoErr = c.Insert(&Topic{targetUrl, topicHeader, topicBody})
-    if mongoErr != nil {
-      log.Fatal(mongoErr)
-    }
-    log.Print("Topic processed", targetUrl)
+        c := session.DB("crawler").C("topics")
+        mongoErr = c.Insert(&Topic{targetUrl, topicHeader, topicBody})
+        if mongoErr != nil {
+          log.Fatal(mongoErr)
+        }
+        log.Print("Processing next topic", targetUrl)
+      default:
+        log.Print("No links")
+      }
+  }
 }
 
 func main() {
+    var topicChannel = make(chan string)
 
-    for pageNum := 1; pageNum < 2; pageNum++ {
+    for wCount := 0; wCount < 30; wCount++ {
+      go topicWorker(topicChannel)
+    }
+
+    var topics []string
+    for pageNum := 1; pageNum <= 5; pageNum++ {
         targetUrl := targetUrlTemplate
 
         if pageNum >= 2 {
@@ -66,10 +80,13 @@ func main() {
         doc.Find("#threads .threadbit a.title").Each(func(i int, s *goquery.Selection) {
             topicLink, ok := s.Attr("href")
             if ok {
-                log.Print("Going to process page", topicLink)
-                go topicWorker(topicLink)
+                topics = append(topics, topicLink)
             }
         })
+    }
+
+    for _, topic := range topics {
+      topicChannel <- topic
     }
 
 }
