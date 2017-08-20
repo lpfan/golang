@@ -28,10 +28,8 @@ func topicWorker(s *mgo.Session, topicChannel<-chan string) {
         }
 
         var topicHeader string
-        doc.Find("#postlist h2.title").Each(func(i int, s *goquery.Selection){
-          topicHeader = s.Text()
-          fmt.Println(topicHeader)
-        })
+        topicHeader = doc.Find("div#postlist #posts div.postdetails div.postbody div.postrow h2.title").First().Text()
+        fmt.Println(topicHeader)
 
         var topicBody string
         doc.Find("#postlist div.postdetails div.content").Each(func(i int, s *goquery.Selection){
