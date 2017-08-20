@@ -16,7 +16,7 @@ type  Topic struct {
 	Content string
 }
 
-func topicWorker(topicChannel<-chan string) {
+func topicWorker(s *mgo.Session, topicChannel<-chan string) {
   for {
     select {
       case topicLink := <- topicChannel:
@@ -39,14 +39,11 @@ func topicWorker(topicChannel<-chan string) {
           fmt.Println(topicBody)
         })
 
-        session, mongoErr := mgo.Dial("localhost")
-        if mongoErr != nil {
-          log.Fatal(err)
-        }
+        session := s.Copy()
         defer session.Close()
-
         c := session.DB("crawler").C("topics")
-        mongoErr = c.Insert(&Topic{targetUrl, topicHeader, topicBody})
+
+        mongoErr := c.Insert(&Topic{targetUrl, topicHeader, topicBody})
         if mongoErr != nil {
           log.Fatal(mongoErr)
         }
@@ -60,9 +57,6 @@ func topicWorker(topicChannel<-chan string) {
 func main() {
     var topicChannel = make(chan string)
 
-    for wCount := 0; wCount < 30; wCount++ {
-      go topicWorker(topicChannel)
-    }
 
     var topics []string
     for pageNum := 1; pageNum <= 5; pageNum++ {
@@ -83,6 +77,16 @@ func main() {
                 topics = append(topics, topicLink)
             }
         })
+    }
+    session, mongoErr := mgo.Dial("localhost")
+    if mongoErr != nil {
+      log.Fatal(mongoErr)
+    }
+    defer session.Close()
+    session.SetMode(mgo.Monotonic, true)
+
+    for wCount := 0; wCount < 30; wCount++ {
+      go topicWorker(session, topicChannel)
     }
 
     for _, topic := range topics {
