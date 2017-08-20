@@ -9,6 +9,7 @@ import (
     "golang.org/x/text/encoding/charmap"
     "strings"
     "io/ioutil"
+    "time"
 )
 
 const domainUrl = "http://bmwclub.ua/"
@@ -18,6 +19,7 @@ type  Topic struct {
 	Url string
 	Title string
 	Content string
+  CreatedAt time.Time
 }
 
 func decodeStringToUtf(rawString string) string {
@@ -40,21 +42,34 @@ func topicWorker(s *mgo.Session, topicChannel<-chan string) {
         if err != nil {
           log.Fatal(err)
         }
+        targetUrl = decodeStringToUtf(targetUrl)
 
         var topicHeader string
         topicHeader = doc.Find("div#postlist #posts div.postdetails div.postbody div.postrow h2.title").First().Text()
+        topicHeader = strings.TrimSpace(topicHeader)
         topicHeader = decodeStringToUtf(topicHeader)
         fmt.Println(topicHeader)
 
         var topicBody string
         topicBody = doc.Find("div#postlist #posts div.postdetails div.postbody div.postrow div.content").First().Text()
-        topicBody = decodeStringToUtf(topicBody)
+        topicBody = decodeStringToUtf(strings.TrimSpace(topicBody))
+
+        var topicCreatedAt string
+        topicCreatedAt = doc.Find("div#postlist #posts .postcontainer div.posthead .postdate").First().Text()
+        topicCreatedAt = strings.TrimSpace(topicCreatedAt)
+        topicCreatedAt = decodeStringToUtf(topicCreatedAt)
+
+        const layout = "02.01.2006,В 15:04"
+        topicCreatedAtTime, timeErr := time.Parse(layout, topicCreatedAt)
+        if timeErr != nil {
+          log.Print(timeErr)
+        }
 
         session := s.Copy()
         defer session.Close()
         c := session.DB("crawler").C("topics")
 
-        mongoErr := c.Insert(&Topic{targetUrl, topicHeader, topicBody})
+        mongoErr := c.Insert(&Topic{targetUrl, topicHeader, topicBody, topicCreatedAtTime})
         if mongoErr != nil {
           log.Fatal(mongoErr)
         }
