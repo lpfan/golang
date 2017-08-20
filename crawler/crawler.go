@@ -5,6 +5,10 @@ import (
     "log"
     "github.com/PuerkitoBio/goquery"
     "gopkg.in/mgo.v2"
+    "golang.org/x/text/transform"
+    "golang.org/x/text/encoding/charmap"
+    "strings"
+    "io/ioutil"
 )
 
 const domainUrl = "http://bmwclub.ua/"
@@ -14,6 +18,16 @@ type  Topic struct {
 	Url string
 	Title string
 	Content string
+}
+
+func decodeStringToUtf(rawString string) string {
+  sr := strings.NewReader(rawString)
+  tr := transform.NewReader(sr, charmap.Windows1251.NewDecoder())
+  buf, err := ioutil.ReadAll(tr)
+  if err != nil {
+    log.Fatal(err)
+  }
+  return string(buf)
 }
 
 func topicWorker(s *mgo.Session, topicChannel<-chan string) {
@@ -29,13 +43,12 @@ func topicWorker(s *mgo.Session, topicChannel<-chan string) {
 
         var topicHeader string
         topicHeader = doc.Find("div#postlist #posts div.postdetails div.postbody div.postrow h2.title").First().Text()
+        topicHeader = decodeStringToUtf(topicHeader)
         fmt.Println(topicHeader)
 
         var topicBody string
-        doc.Find("#postlist div.postdetails div.content").Each(func(i int, s *goquery.Selection){
-          topicBody = s.Text()
-          fmt.Println(topicBody)
-        })
+        topicBody = doc.Find("div#postlist #posts div.postdetails div.postbody div.postrow div.content").First().Text()
+        topicBody = decodeStringToUtf(topicBody)
 
         session := s.Copy()
         defer session.Close()
