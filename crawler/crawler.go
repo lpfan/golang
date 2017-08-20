@@ -1,7 +1,6 @@
 package main
 
 import (
-    "fmt"
     "log"
     "github.com/PuerkitoBio/goquery"
     "gopkg.in/mgo.v2"
@@ -36,7 +35,6 @@ func topicWorker(s *mgo.Session, topicChannel<-chan string) {
   for {
     select {
       case topicLink := <- topicChannel:
-        log.Printf("Recieved %s for processing", topicLink)
         targetUrl := domainUrl + topicLink
         doc, err := goquery.NewDocument(targetUrl)
         if err != nil {
@@ -48,7 +46,6 @@ func topicWorker(s *mgo.Session, topicChannel<-chan string) {
         topicHeader = doc.Find("div#postlist #posts div.postdetails div.postbody div.postrow h2.title").First().Text()
         topicHeader = strings.TrimSpace(topicHeader)
         topicHeader = decodeStringToUtf(topicHeader)
-        fmt.Println(topicHeader)
 
         var topicBody string
         topicBody = doc.Find("div#postlist #posts div.postdetails div.postbody div.postrow div.content").First().Text()
@@ -73,9 +70,6 @@ func topicWorker(s *mgo.Session, topicChannel<-chan string) {
         if mongoErr != nil {
           log.Fatal(mongoErr)
         }
-        log.Print("Processing next topic", targetUrl)
-      default:
-        log.Print("No links")
       }
   }
 }
@@ -100,7 +94,7 @@ func main() {
         doc.Find("#threads .threadbit a.title").Each(func(i int, s *goquery.Selection) {
             topicLink, ok := s.Attr("href")
             if ok {
-                topics = append(topics, topicLink)
+                topics = append(topics, decodeStringToUtf(topicLink))
             }
         })
     }
