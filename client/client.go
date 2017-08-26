@@ -3,14 +3,20 @@ package main
 import (
     "net/http"
 
-    "github.com/zenazn/goji"
+    "github.com/gin-gonic/gin"
 )
 
 func main() {
-    goji.Get("/", Root)
-    goji.Serve()
+    router := gin.Default()
+    router.LoadHTMLGlob("frontend/*.html")
+    router.Static("/dist", "./frontend/dist")
+    router.GET("/", rootHandler)
+    router.Run()
 }
 
-func Root(w http.ResponseWriter, r *http.Request) {
-    http.ServeFile(w, r, "templates/index.html")
+func rootHandler(c *gin.Context) {
+    // c.JSON(200, gin.H{
+    //     "message": "pong",
+    // })
+    c.HTML(http.StatusOK, "index.html", nil)
 }
