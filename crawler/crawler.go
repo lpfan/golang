@@ -57,8 +57,10 @@ func topicWorker(s *mgo.Session, wg *sync.WaitGroup, topicLink string) {
         topicCreatedAt = decodeStringToUtf(topicCreatedAt)
 
         const layout = "02.01.2006,В 15:04"
+        var topicCreatedAtTime time.Time
         topicCreatedAtTime, timeErr := time.Parse(layout, topicCreatedAt)
         if timeErr != nil {
+          topicCreatedAtTime = time.Now().Local()
           log.Print(timeErr)
         }
 
